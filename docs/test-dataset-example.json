@@ -1,0 +1,92 @@
+{
+  "description": "Пример тестового датасета для оценки качества сопоставления",
+  "dataset": [
+    {
+      "rawgTitle": "Tomb Raider: Anniversary",
+      "rawgReleased": "2007-03-01",
+      "rawgPlatforms": ["PC", "PlayStation 2", "Xbox 360"],
+      "expectedCheapSharkGameId": "456",
+      "expectedCheapSharkTitle": "Tomb Raider: Anniversary",
+      "notes": "Простое название, точное совпадение"
+    },
+    {
+      "rawgTitle": "The Witcher 3: Wild Hunt",
+      "rawgReleased": "2015-05-19",
+      "rawgPlatforms": ["PC", "PlayStation 4", "Xbox One"],
+      "expectedCheapSharkGameId": "123",
+      "expectedCheapSharkTitle": "The Witcher 3: Wild Hunt",
+      "notes": "Популярная игра, должна найтись"
+    },
+    {
+      "rawgTitle": "Grand Theft Auto V",
+      "rawgReleased": "2013-09-17",
+      "rawgPlatforms": ["PC", "PlayStation 3", "Xbox 360"],
+      "expectedCheapSharkGameId": "789",
+      "expectedCheapSharkTitle": "Grand Theft Auto V",
+      "notes": "Очень популярная игра"
+    },
+    {
+      "rawgTitle": "The Elder Scrolls V: Skyrim - Special Edition",
+      "rawgReleased": "2016-10-28",
+      "rawgPlatforms": ["PC", "PlayStation 4", "Xbox One"],
+      "expectedCheapSharkGameId": "101",
+      "expectedCheapSharkTitle": "The Elder Scrolls V: Skyrim Special Edition",
+      "notes": "Издание с дефисом, проверить нормализацию"
+    },
+    {
+      "rawgTitle": "Fallout 4: Game of the Year Edition",
+      "rawgReleased": "2017-09-26",
+      "rawgPlatforms": ["PC", "PlayStation 4", "Xbox One"],
+      "expectedCheapSharkGameId": "202",
+      "expectedCheapSharkTitle": "Fallout 4 GOTY",
+      "notes": "GOTY издание, проверить удаление шумовых слов"
+    },
+    {
+      "rawgTitle": "Red Dead Redemption 2",
+      "rawgReleased": "2019-11-05",
+      "rawgPlatforms": ["PC", "PlayStation 4", "Xbox One"],
+      "expectedCheapSharkGameId": "303",
+      "expectedCheapSharkTitle": "Red Dead Redemption 2",
+      "notes": "Современная популярная игра"
+    },
+    {
+      "rawgTitle": "Cyberpunk 2077",
+      "rawgReleased": "2020-12-10",
+      "rawgPlatforms": ["PC", "PlayStation 4", "Xbox One"],
+      "expectedCheapSharkGameId": "404",
+      "expectedCheapSharkTitle": "Cyberpunk 2077",
+      "notes": "Недавняя игра"
+    },
+    {
+      "rawgTitle": "Super Mario Odyssey",
+      "rawgReleased": "2017-10-27",
+      "rawgPlatforms": ["Nintendo Switch"],
+      "expectedCheapSharkGameId": null,
+      "expectedCheapSharkTitle": null,
+      "notes": "Консольная игра без PC, не должно найтись"
+    },
+    {
+      "rawgTitle": "God of War",
+      "rawgReleased": "2018-04-20",
+      "rawgPlatforms": ["PlayStation 4"],
+      "expectedCheapSharkGameId": null,
+      "expectedCheapSharkTitle": null,
+      "notes": "Эксклюзив PlayStation, не должно найтись"
+    },
+    {
+      "rawgTitle": "Half-Life 2",
+      "rawgReleased": "2004-11-16",
+      "rawgPlatforms": ["PC", "Xbox", "PlayStation 3"],
+      "expectedCheapSharkGameId": "505",
+      "expectedCheapSharkTitle": "Half-Life 2",
+      "notes": "Старая игра, проверить работу с историческими данными"
+    }
+  ],
+  "instructions": [
+    "1. Соберите 100 игр (60 простых + 40 проблемных)",
+    "2. Для каждой игры вручную найдите соответствие в CheapShark (или отметьте что его нет)",
+    "3. Заполните expectedCheapSharkGameId и expectedCheapSharkTitle",
+    "4. Отправьте POST запрос на /api/games/match-test с этим датасетом",
+    "5. Проанализируйте результаты и выберите лучшую стратегию"
+  ]
+}
