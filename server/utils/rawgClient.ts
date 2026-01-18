@@ -19,9 +19,20 @@ export const useRawgClient = () => {
                 }
             })
 
-            const response = await $fetch(url.toString())
+            // Добавляем таймаут для внешних API запросов (5 секунд)
+            const response = await $fetch(url.toString(), {
+                timeout: 5000 // 5 секунд таймаут
+            })
             return response as T
-        } catch (error) {
+        } catch (error: any) {
+            // Если это таймаут, возвращаем более понятную ошибку
+            if (error.name === 'AbortError' || error.message?.includes('timeout')) {
+                throw createError({
+                    statusCode: 504,
+                    statusMessage: `Таймаут запроса к RAWG API: ${path}`,
+                    data: error
+                })
+            }
             throw createError({
                 statusCode: 500,
                 statusMessage: `Ошибка запроса к RAWG API: ${path}`,

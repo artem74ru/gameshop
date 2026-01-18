@@ -20,14 +20,23 @@ interface PaginatedResponse<T> {
 export const fetchAllResults = async <T = any>(
     endpoint: string,
     params: Record<string, string | number | undefined> = {},
-    maxPageSize: number = 40
+    maxPageSize: number = 40,
+    maxPages: number = 5 // Ограничиваем количество страниц для избежания таймаутов
 ): Promise<T[]> => {
     const { get } = useRawgClient()
     const allResults: T[] = []
     let page = 1
     let hasMore = true
+    const startTime = Date.now()
+    const MAX_EXECUTION_TIME = 8000 // Максимум 8 секунд на выполнение
 
-    while (hasMore) {
+    while (hasMore && page <= maxPages) {
+        // Проверяем, не превысили ли мы максимальное время выполнения
+        if (Date.now() - startTime > MAX_EXECUTION_TIME) {
+            console.warn(`Превышено максимальное время выполнения для ${endpoint}, останавливаем пагинацию на странице ${page}`)
+            break
+        }
+
         try {
             const response = await get<PaginatedResponse<T>>(endpoint, {
                 ...params,
@@ -47,8 +56,13 @@ export const fetchAllResults = async <T = any>(
             } else {
                 hasMore = false
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error(`Ошибка при получении страницы ${page} для ${endpoint}:`, error)
+            // Если это таймаут, прекращаем пагинацию
+            if (error.statusCode === 504 || error.message?.includes('timeout')) {
+                console.warn(`Таймаут при получении страницы ${page} для ${endpoint}, возвращаем уже полученные результаты`)
+                break
+            }
             // Если ошибка, прекращаем пагинацию
             hasMore = false
         }
