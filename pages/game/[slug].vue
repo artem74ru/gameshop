@@ -181,35 +181,31 @@
             
             <!-- Кнопка покупки и ссылка на магазин -->
             <div v-if="selectedStore && selectedStore.storeURL" class="purchase-section">
-              <a
-                  :href="selectedStore.storeURL"
-                  target="_blank"
-                  rel="noopener noreferrer"
+              <button
                   class="buy-button"
+                  :class="{ 'in-cart': gameShopStore.isInCart(game.id) }"
+                  @click="handleBuyAndAddToCart"
+                  :disabled="!canAddToCart"
               >
-                Купить в {{ selectedStore.storeName }} за {{ formatPrice(selectedStore.price) }}
-              </a>
-              <button 
-                  class="cart-button"
-                  @click="addToCart(game)"
-              >
-                <span v-if="gameShopStore.isInCart(game.id)">✓</span>
-                <span v-else>🛒</span>
+                <span v-if="gameShopStore.isInCart(game.id)" class="buy-button-content">
+                  <span class="buy-check-icon">✓ В корзине</span>
+                  <span class="buy-remove-text">Удалить</span>
+                </span>
+                <span v-else>Купить в {{ selectedStore.storeName }} за {{ formatPrice(selectedStore.price) }}</span>
               </button>
             </div>
             <div v-else-if="selectedStore" class="purchase-section">
               <button 
                   class="buy-button"
-                  @click="handleBuy"
+                  :class="{ 'in-cart': gameShopStore.isInCart(game.id) }"
+                  :disabled="!canAddToCart"
+                  @click="handleBuyToggle"
               >
-                Купить {{ formatPrice(selectedStore.price) }}
-              </button>
-              <button 
-                  class="cart-button"
-                  @click="addToCart(game)"
-              >
-                <span v-if="gameShopStore.isInCart(game.id)">✓</span>
-                <span v-else>🛒</span>
+                <span v-if="gameShopStore.isInCart(game.id)" class="buy-button-content">
+                  <span class="buy-check-icon">✓ В корзине</span>
+                  <span class="buy-remove-text">Удалить</span>
+                </span>
+                <span v-else>Купить {{ formatPrice(selectedStore.price) }}</span>
               </button>
             </div>
           </div>
@@ -218,16 +214,15 @@
           <div v-else-if="currentPrice !== null && currentPrice !== undefined && currentPrice > 0" class="purchase-section">
             <button 
                 class="buy-button"
-                @click="handleBuy"
+                :class="{ 'in-cart': gameShopStore.isInCart(game.id) }"
+                :disabled="!canAddToCart"
+                @click="handleBuyToggle"
             >
-              Купить {{ formatPrice(currentPrice) }}
-            </button>
-            <button 
-                class="cart-button"
-                @click="addToCart(game)"
-            >
-              <span v-if="gameShopStore.isInCart(game.id)">✓</span>
-              <span v-else>🛒</span>
+              <span v-if="gameShopStore.isInCart(game.id)" class="buy-button-content">
+                <span class="buy-check-icon">✓ В корзине</span>
+                <span class="buy-remove-text">Удалить</span>
+              </span>
+              <span v-else>Купить {{ formatPrice(currentPrice) }}</span>
             </button>
           </div>
           
@@ -249,7 +244,20 @@
 
       <div class="section">
         <h2 class="section-title">Описание</h2>
-        <div class="description" v-html="safeDescription"></div>
+        <div 
+            ref="descriptionRef"
+            class="description"
+            :class="{ 'description-collapsed': !isDescriptionExpanded && shouldShowExpandButton }"
+            :style="{ maxHeight: descriptionMaxHeight }"
+            v-html="safeDescription"
+        ></div>
+        <button 
+            v-if="shouldShowExpandButton"
+            class="expand-description-btn"
+            @click="toggleDescription"
+        >
+          {{ isDescriptionExpanded ? 'Свернуть' : 'Развернуть' }}
+        </button>
       </div>
 
       <!-- Модальное окно для просмотра изображения -->
@@ -405,6 +413,21 @@
         </div>
       </div>
     </div>
+    
+    <!-- Модальное окно уведомлений -->
+    <NotificationModal
+        :is-visible="modalVisible"
+        :type="modalType"
+        :title="modalTitle"
+        :message="modalMessage"
+        :confirm-text="modalConfirmText"
+        :cancel-text="modalCancelText"
+        :show-cancel="modalShowCancel"
+        :auto-close="modalAutoClose"
+        @close="closeModal"
+        @confirm="handleModalConfirm"
+        @cancel="closeModal"
+    />
   </div>
 </template>
 
@@ -496,6 +519,77 @@ const safeDescription = computed(() => (game.value?.description || '').trim())
 const showVideo = ref(false)
 const selectedImageIndex = ref(0)
 const imageModalOpen = ref(false)
+
+// Развертывание/сворачивание описания
+const descriptionRef = ref<HTMLElement | null>(null)
+const posterRef = ref<HTMLElement | null>(null)
+const isDescriptionExpanded = ref(false)
+const shouldShowExpandButton = ref(false)
+const posterHeight = ref<number>(0)
+
+// Вычисляем максимальную высоту описания на основе высоты poster
+const descriptionMaxHeight = computed(() => {
+  if (!shouldShowExpandButton.value || isDescriptionExpanded.value) {
+    return 'none'
+  }
+  return posterHeight.value > 0 ? `${posterHeight.value}px` : 'none'
+})
+
+// Проверяем, нужно ли показывать кнопку развернуть
+const checkDescriptionHeight = () => {
+  if (!process.client) return
+  
+  nextTick(() => {
+    if (!descriptionRef.value || !posterRef.value) return
+    
+    const descHeight = descriptionRef.value.scrollHeight
+    const postHeight = posterRef.value.offsetHeight
+    
+    posterHeight.value = postHeight
+    
+    // Если высота описания больше высоты poster, показываем кнопку
+    shouldShowExpandButton.value = descHeight > postHeight
+  })
+}
+
+// Переключение состояния развернуто/свернуто
+const toggleDescription = () => {
+  isDescriptionExpanded.value = !isDescriptionExpanded.value
+}
+
+// Наблюдаем за изменением описания и изображения
+watch(() => safeDescription.value, () => {
+  checkDescriptionHeight()
+}, { immediate: true })
+
+watch(() => game.value?.backgroundImage, () => {
+  checkDescriptionHeight()
+})
+
+// Проверяем высоту после загрузки изображения
+onMounted(() => {
+  if (process.client) {
+    // Ждем загрузки изображений
+    const img = new Image()
+    if (game.value?.backgroundImage) {
+      img.src = game.value.backgroundImage
+      img.onload = () => {
+        setTimeout(checkDescriptionHeight, 100)
+      }
+    } else {
+      setTimeout(checkDescriptionHeight, 100)
+    }
+    
+    // Также проверяем при изменении размера окна
+    window.addEventListener('resize', checkDescriptionHeight)
+  }
+})
+
+onUnmounted(() => {
+  if (process.client) {
+    window.removeEventListener('resize', checkDescriptionHeight)
+  }
+})
 
 // Все изображения для галереи
 const allImages = computed(() => {
@@ -630,6 +724,26 @@ const currentPrice = computed(() => {
   return game.value?.price ?? null
 })
 
+// Проверяем, можно ли добавить игру в корзину
+const canAddToCart = computed(() => {
+  // Проверяем выбранный магазин
+  if (selectedStore.value && typeof selectedStore.value.price === 'number' && selectedStore.value.price > 0) {
+    return true
+  }
+  // Проверяем массив stores
+  if (game.value?.stores && game.value.stores.length > 0) {
+    const firstStore = game.value.stores[0]
+    if (typeof firstStore.price === 'number' && firstStore.price > 0) {
+      return true
+    }
+  }
+  // Проверяем прямую цену
+  if (typeof game.value?.price === 'number' && game.value.price !== null && game.value.price !== undefined && game.value.price > 0) {
+    return true
+  }
+  return false
+})
+
 // Обновляем storeName при изменении магазина
 const currentStoreName = computed(() => {
   if (selectedStore.value) {
@@ -657,14 +771,40 @@ const selectStore = (store: StoreOption, index: number) => {
 }
 
 const addToCart = (g: GameDetails) => {
-  // Не добавляем в корзину если цена неизвестна или равна 0
-  const effectivePrice = selectedStore.value ? selectedStore.value.price : g.price
-  if (typeof effectivePrice !== 'number' || effectivePrice === null || effectivePrice === undefined || effectivePrice <= 0) {
-    return
+  // Определяем эффективную цену и магазин
+  let effectivePrice: number | null = null
+  let storeToAdd: StoreOption | null = null
+
+  // Приоритет 1: выбранный магазин из списка магазинов
+  if (selectedStore.value) {
+    effectivePrice = selectedStore.value.price
+    storeToAdd = selectedStore.value
+  }
+  // Приоритет 2: первый магазин из массива stores
+  else if (g.stores && g.stores.length > 0) {
+    const firstStore = g.stores[0]
+    if (typeof firstStore.price === 'number' && firstStore.price > 0) {
+      effectivePrice = firstStore.price
+      storeToAdd = firstStore
+    }
+  }
+  // Приоритет 3: прямая цена из game
+  else if (typeof g.price === 'number' && g.price !== null && g.price !== undefined && g.price > 0) {
+    effectivePrice = g.price
+    storeToAdd = {
+      storeID: '',
+      storeName: g.storeName || '',
+      price: g.price,
+      originalPrice: g.originalPrice,
+      discount: g.discount,
+      storeURL: g.storeURL
+    }
   }
 
-  const storeToAdd: StoreOption = selectedStore.value || 
-    (g.stores && g.stores.length > 0 ? g.stores[0] as StoreOption : { storeID: '', storeName: g.storeName || '', price: effectivePrice })
+  // Не добавляем в корзину если цена неизвестна или равна 0
+  if (!effectivePrice || effectivePrice <= 0 || !storeToAdd) {
+    return
+  }
 
   gameShopStore.addToCart({
     id: g.id,
@@ -687,6 +827,90 @@ const handleBuy = () => {
   } else {
     // TODO: Открыть модальное окно оплаты
     console.log('Open payment modal')
+  }
+}
+
+// Состояние модального окна
+const modalVisible = ref(false)
+const modalType = ref<'success' | 'error' | 'info' | 'warning'>('success')
+const modalTitle = ref('')
+const modalMessage = ref('')
+const modalConfirmText = ref('OK')
+const modalCancelText = ref('Отмена')
+const modalShowCancel = ref(false)
+const modalAutoClose = ref(false)
+const pendingAction = ref<(() => void) | null>(null)
+
+// Показать модальное окно
+const showModal = (
+  type: 'success' | 'error' | 'info' | 'warning',
+  title: string,
+  message?: string,
+  options?: {
+    confirmText?: string
+    cancelText?: string
+    showCancel?: boolean
+    autoClose?: boolean
+    onConfirm?: () => void
+  }
+) => {
+  modalType.value = type
+  modalTitle.value = title
+  modalMessage.value = message || ''
+  modalConfirmText.value = options?.confirmText || 'OK'
+  modalCancelText.value = options?.cancelText || 'Отмена'
+  modalShowCancel.value = options?.showCancel || false
+  modalAutoClose.value = options?.autoClose || false
+  pendingAction.value = options?.onConfirm || null
+  modalVisible.value = true
+}
+
+// Закрыть модальное окно
+const closeModal = () => {
+  modalVisible.value = false
+  pendingAction.value = null
+}
+
+// Подтверждение в модальном окне
+const handleModalConfirm = () => {
+  if (pendingAction.value) {
+    pendingAction.value()
+  }
+}
+
+// Обработчик для кнопки "Купить" - открывает магазин и добавляет в корзину
+const handleBuyAndAddToCart = () => {
+  if (gameShopStore.isInCart(game.value?.id || 0)) {
+    // Если уже в корзине, удаляем
+    const gameName = game.value?.name || 'Игра'
+    gameShopStore.removeFromCart(game.value!.id)
+    showModal('info', 'Товар удален', `"${gameName}" удален из корзины`, { autoClose: true })
+  } else {
+    // Сначала добавляем в корзину
+    if (game.value) {
+      addToCart(game.value)
+      showModal('success', 'Товар добавлен', `"${game.value.name}" добавлен в корзину`, { autoClose: true })
+    }
+    // Затем открываем ссылку на магазин
+    if (selectedStore.value?.storeURL) {
+      window.open(selectedStore.value.storeURL, '_blank', 'noopener,noreferrer')
+    }
+  }
+}
+
+// Обработчик для кнопки "Купить" - добавляет/удаляет из корзины
+const handleBuyToggle = () => {
+  if (gameShopStore.isInCart(game.value?.id || 0)) {
+    // Удаляем из корзины
+    const gameName = game.value?.name || 'Игра'
+    gameShopStore.removeFromCart(game.value!.id)
+    showModal('info', 'Товар удален', `"${gameName}" удален из корзины`, { autoClose: true })
+  } else {
+    // Добавляем в корзину
+    if (game.value) {
+      addToCart(game.value)
+      showModal('success', 'Товар добавлен', `"${game.value.name}" добавлен в корзину`, { autoClose: true })
+    }
   }
 }
 
@@ -1527,11 +1751,52 @@ watch(tabs, (visibleTabs) => {
   font-size: 16px;
   font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all 0.2s;
+  position: relative;
+  min-width: 200px;
 }
 
-.buy-button:hover {
+.buy-button:hover:not(:disabled) {
   background: #ff7070;
+}
+
+.buy-button.in-cart {
+  background: #4caf50;
+}
+
+.buy-button.in-cart:hover:not(:disabled) {
+  background: #f44336;
+}
+
+.buy-button-content {
+  position: relative;
+  display: inline-block;
+  width: 100%;
+}
+
+.buy-check-icon {
+  display: block;
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+.buy-remove-text {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  opacity: 0;
+  transform: translateY(-10px);
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+.buy-button.in-cart:hover:not(:disabled) .buy-check-icon {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.buy-button.in-cart:hover:not(:disabled) .buy-remove-text {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .cart-button {
@@ -1548,8 +1813,13 @@ watch(tabs, (visibleTabs) => {
   transition: background-color 0.2s;
 }
 
-.cart-button:hover {
+.cart-button:hover:not(:disabled) {
   background: #e0e0e0;
+}
+
+.cart-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .meta {
@@ -1781,6 +2051,41 @@ watch(tabs, (visibleTabs) => {
 
 .description {
   line-height: 1.6;
+  transition: max-height 0.3s ease, overflow 0.3s ease;
+  overflow: hidden;
+}
+
+.description-collapsed {
+  position: relative;
+}
+
+.description-collapsed::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  background: linear-gradient(to bottom, transparent, white);
+  pointer-events: none;
+}
+
+.expand-description-btn {
+  margin-top: 16px;
+  padding: 10px 20px;
+  background: #1976d2;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  align-self: flex-start;
+}
+
+.expand-description-btn:hover {
+  background: #1565c0;
 }
 
 .carousel {

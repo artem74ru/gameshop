@@ -36,67 +36,48 @@
           </div>
 
           <div class="price-container">
-            <span class="price">{{ formatPrice(game.price) }}</span>
-            <span v-if="hasStores" class="stores-count">
-              <span v-if="game.stores && game.stores.length > 1">
-                +{{ game.stores.length - 1 }} магазин{{ game.stores.length - 1 > 1 ? 'ов' : '' }}
-              </span>
-              <span v-else-if="game.stores && game.stores.length === 1">
-                {{ game.stores[0].storeName }}
-              </span>
-            </span>
+            <span class="price">{{ formatPrice(availablePrice) }}</span>
           </div>
 
-          <div class="action-icons">
-            <div class="icon-placeholder"></div>
-            <div class="icon-placeholder"></div>
-          </div>
+      
         </div>
       </div>
     </NuxtLink>
     
-    <!-- Выпадающий список магазинов -->
-    <div 
-        v-if="hasStores" 
-        class="stores-dropdown"
-        :class="{ open: showStoresDropdown }"
-        @click.stop
+    <!-- Кнопка корзины вынесена из NuxtLink чтобы не было перехода -->
+    <button 
+        class="cart-icon-btn"
+        :class="{ 'in-cart': gameShopStore.isInCart(game.id) }"
+        @click="handleCartToggle"
+        :disabled="!canAddToCart"
+        :title="gameShopStore.isInCart(game.id) ? 'Удалить' : 'Добавить в корзину'"
     >
-      <button 
-          class="stores-dropdown-toggle"
-          @click.stop="showStoresDropdown = !showStoresDropdown"
-      >
-        <span>
-          <span v-if="allStores.length > 1">Все магазины ({{ allStores.length }})</span>
-          <span v-else>Выбрать магазин</span>
-        </span>
-        <span class="dropdown-arrow">▼</span>
-      </button>
-      
-      <div v-if="showStoresDropdown" class="stores-dropdown-menu">
-        <div
-            v-for="(store, index) in allStores"
-            :key="store.storeID || index"
-            class="store-option"
-            :class="{ 'has-link': store.storeURL }"
-            @click.stop="selectStore(store)"
-        >
-          <div class="store-option-name">{{ store.storeName }}</div>
-          <div class="store-option-price">
-            <span class="store-price-current">{{ formatPrice(store.price) }}</span>
-            <span v-if="store.originalPrice && store.originalPrice > store.price" class="store-price-original">
-              {{ formatPrice(store.originalPrice) }}
-            </span>
-            <span v-if="store.discount" class="store-discount">-{{ store.discount }}%</span>
-          </div>
-          <div v-if="store.storeURL" class="store-option-link">Перейти →</div>
-        </div>
-      </div>
-    </div>
+      <span v-if="gameShopStore.isInCart(game.id)" class="cart-icon-content">
+        <span class="check-icon">✓</span>
+        <span class="remove-icon">✕</span>
+      </span>
+      <span v-else>🛒</span>
+    </button>
   </div>
+  
+  <!-- Модальное окно уведомлений -->
+  <NotificationModal
+      :is-visible="modalVisible"
+      :type="modalType"
+      :title="modalTitle"
+      :message="modalMessage"
+      :auto-close="true"
+      :auto-close-delay="2000"
+      @close="closeModal"
+      @confirm="closeModal"
+  />
 </template>
 
 <script setup lang="ts">
+import { getGameImage } from '~/utils/useGameImage'
+import { useGameShopStore } from '~/stores/GameShop'
+import NotificationModal from '~/components/UIComponents/NotificationModal.vue'
+
 interface StoreOption {
   storeID: string
   storeName: string
@@ -128,41 +109,27 @@ const props = defineProps<{
   game: Game
 }>()
 
-import { getGameImage } from '~/utils/useGameImage'
+const gameShopStore = useGameShopStore()
 
-const showStoresDropdown = ref(false)
+// Состояние модального окна
+const modalVisible = ref(false)
+const modalType = ref<'success' | 'error' | 'info' | 'warning'>('success')
+const modalTitle = ref('')
+const modalMessage = ref('')
 
-// Проверяем, есть ли магазины с ценами
-const hasStores = computed(() => {
-  // Если есть массив stores с хотя бы одним элементом
-  if (props.game.stores && props.game.stores.length > 0) {
-    return true
-  }
-  // Если есть цена и storeURL (один магазин)
-  if (props.game.price && props.game.price > 0 && props.game.storeURL) {
-    return true
-  }
-  return false
-})
+// Показать уведомление
+const showNotification = (type: 'success' | 'error' | 'info' | 'warning', title: string, message?: string) => {
+  modalType.value = type
+  modalTitle.value = title
+  modalMessage.value = message || ''
+  modalVisible.value = true
+}
 
-// Получаем список всех магазинов (из массива или создаем из одного магазина)
-const allStores = computed(() => {
-  if (props.game.stores && props.game.stores.length > 0) {
-    return props.game.stores
-  }
-  // Если есть цена и storeURL, создаем один магазин
-  if (props.game.price && props.game.price > 0 && props.game.storeURL) {
-    return [{
-      storeID: 'single',
-      storeName: props.game.storeName || 'Магазин',
-      price: props.game.price,
-      originalPrice: props.game.originalPrice,
-      discount: props.game.discount,
-      storeURL: props.game.storeURL
-    }]
-  }
-  return []
-})
+// Закрыть модальное окно
+const closeModal = () => {
+  modalVisible.value = false
+}
+
 
 const formatPrice = (price?: number | null) => {
   if (typeof price !== 'number' || price === null || price === undefined || price <= 0) {
@@ -202,30 +169,69 @@ const checkIfDLC = (game: Game) => {
          slug.includes('add-on')
 }
 
-// Выбор магазина - открываем ссылку на магазин
-const selectStore = (store: StoreOption) => {
-  if (store.storeURL) {
-    window.open(store.storeURL, '_blank', 'noopener,noreferrer')
+// Получаем доступную цену (из game.price или из stores)
+const availablePrice = computed(() => {
+  // Сначала проверяем прямую цену
+  if (typeof props.game.price === 'number' && props.game.price !== null && props.game.price !== undefined && props.game.price > 0) {
+    return props.game.price
   }
-  showStoresDropdown.value = false
-}
-
-// Закрываем выпадающий список при клике вне его
-if (process.client) {
-  const handleClickOutside = (event: MouseEvent) => {
-    const target = event.target as HTMLElement
-    if (!target.closest('.stores-dropdown')) {
-      showStoresDropdown.value = false
+  // Если прямой цены нет, проверяем массив stores
+  if (props.game.stores && props.game.stores.length > 0) {
+    const firstStore = props.game.stores[0]
+    if (typeof firstStore.price === 'number' && firstStore.price > 0) {
+      return firstStore.price
     }
   }
-  
-  onMounted(() => {
-    document.addEventListener('click', handleClickOutside)
-  })
-  
-  onUnmounted(() => {
-    document.removeEventListener('click', handleClickOutside)
-  })
+  return null
+})
+
+// Проверяем, можно ли добавить игру в корзину (есть цена)
+const canAddToCart = computed(() => {
+  return availablePrice.value !== null
+})
+
+// Получаем информацию о магазине для добавления в корзину
+const storeInfo = computed(() => {
+  // Если есть массив stores, используем первый магазин
+  if (props.game.stores && props.game.stores.length > 0) {
+    const firstStore = props.game.stores[0]
+    return {
+      storeName: firstStore.storeName,
+      storeURL: firstStore.storeURL
+    }
+  }
+  // Иначе используем прямые поля
+  return {
+    storeName: props.game.storeName,
+    storeURL: props.game.storeURL
+  }
+})
+
+// Обработчик добавления/удаления из корзины
+const handleCartToggle = () => {
+  if (gameShopStore.isInCart(props.game.id)) {
+    // Удаляем из корзины
+    gameShopStore.removeFromCart(props.game.id)
+    showNotification('info', 'Товар удален', `"${props.game.name}" удален из корзины`)
+  } else {
+    // Добавляем в корзину
+    const price = availablePrice.value
+    if (!price || price <= 0) {
+      return
+    }
+
+    gameShopStore.addToCart({
+      id: props.game.id,
+      slug: props.game.slug,
+      name: props.game.name,
+      price: price,
+      backgroundImage: props.game.backgroundImage || null,
+      platforms: props.game.platforms,
+      storeName: storeInfo.value.storeName,
+      storeURL: storeInfo.value.storeURL
+    })
+    showNotification('success', 'Товар добавлен', `"${props.game.name}" добавлен в корзину`)
+  }
 }
 </script>
 
@@ -352,144 +358,91 @@ if (process.client) {
   font-size: 11px;
   color: #1976d2;
   font-weight: 500;
-  cursor: pointer;
-  transition: color 0.2s;
-}
-
-.stores-count:hover {
-  color: #1565c0;
-  text-decoration: underline;
-}
-
-.stores-dropdown {
-  position: relative;
-  width: 100%;
-  z-index: 100;
-  background: white;
-  border-radius: 0 0 8px 8px;
-  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.15);
-  overflow: visible;
-  margin-top: 4px;
-}
-
-.stores-dropdown-toggle {
-  width: 100%;
-  padding: 8px 12px;
-  background: #f9f9f9;
-  border: none;
-  border-top: 1px solid #e0e0e0;
-  cursor: pointer;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 12px;
-  font-weight: 500;
-  color: #1976d2;
-  transition: background 0.2s;
-}
-
-.stores-dropdown-toggle:hover {
-  background: #f0f0f0;
-}
-
-.dropdown-arrow {
-  font-size: 10px;
-  transition: transform 0.2s;
-}
-
-.stores-dropdown.open .dropdown-arrow {
-  transform: rotate(180deg);
-}
-
-.stores-dropdown-menu {
-  max-height: 200px;
-  overflow-y: auto;
-  background: white;
-  border-top: 1px solid #e0e0e0;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  border-radius: 0 0 8px 8px;
-}
-
-.store-option {
-  padding: 10px 12px;
-  border-bottom: 1px solid #f0f0f0;
-  cursor: pointer;
-  transition: background 0.2s;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  position: relative;
-}
-
-.store-option.has-link {
-  cursor: pointer;
-}
-
-.store-option.has-link:hover {
-  background: #f0f7ff;
-}
-
-.store-option:hover {
-  background: #f9f9f9;
-}
-
-.store-option:last-child {
-  border-bottom: none;
-}
-
-.store-option-name {
-  font-size: 13px;
-  font-weight: 500;
-  color: #000;
-  flex: 1;
-}
-
-.store-option-price {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-.store-price-current {
-  font-size: 13px;
-  font-weight: 600;
-  color: #1976d2;
-}
-
-.store-price-original {
-  font-size: 11px;
-  color: #999;
-  text-decoration: line-through;
-}
-
-.store-discount {
-  font-size: 11px;
-  font-weight: 600;
-  color: #4caf50;
-  background: rgba(76, 175, 80, 0.1);
-  padding: 2px 6px;
-  border-radius: 4px;
-}
-
-.store-option-link {
-  font-size: 11px;
-  color: #1976d2;
-  font-weight: 500;
-  margin-left: auto;
-  opacity: 0;
-  transition: opacity 0.2s;
-}
-
-.store-option.has-link:hover .store-option-link {
-  opacity: 1;
 }
 
 .action-icons {
   display: flex;
   gap: 8px;
   margin-top: 8px;
+  align-items: center;
+}
+
+.cart-icon-btn {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  width: 36px;
+  height: 36px;
+  background: #f0f0f0;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  transition: all 0.2s;
+  padding: 0;
+  flex-shrink: 0;
+  z-index: 10;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.cart-icon-btn:hover:not(:disabled) {
+  background: #e0e0e0;
+  border-color: #1976d2;
+  transform: scale(1.1);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.cart-icon-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cart-icon-btn.in-cart {
+  background: #4caf50;
+  border-color: #4caf50;
+  color: white;
+}
+
+.cart-icon-btn.in-cart:hover {
+  background: #f44336;
+  border-color: #f44336;
+}
+
+.cart-icon-content {
+  position: relative;
+  display: inline-block;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.check-icon {
+  display: block;
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+.remove-icon {
+  position: absolute;
+  display: block;
+  opacity: 0;
+  transform: scale(0.5);
+  transition: opacity 0.2s, transform 0.2s;
+  font-weight: bold;
+}
+
+.cart-icon-btn.in-cart:hover .check-icon {
+  opacity: 0;
+  transform: scale(0.5);
+}
+
+.cart-icon-btn.in-cart:hover .remove-icon {
+  opacity: 1;
+  transform: scale(1);
 }
 
 .icon-placeholder {

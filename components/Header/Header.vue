@@ -13,7 +13,6 @@
               {{ gameShopStore.count }}
             </span>
           </NuxtLink>
-          <button class="header-button" @click="openAuthModal">ВОЙТИ</button>
         </div>
       </div>
     </div>
@@ -24,11 +23,6 @@
 import { useGameShopStore } from '~/stores/GameShop'
 
 const gameShopStore = useGameShopStore()
-
-const openAuthModal = () => {
-  // TODO: Открыть модальное окно авторизации
-  console.log('Open auth modal')
-}
 </script>
 
 <style lang="scss" scoped>

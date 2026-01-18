@@ -410,6 +410,101 @@ const currentYear = new Date().getFullYear()
 // Флаг для отслеживания, были ли загружены данные
 const hasLoadedInitialData = ref(false)
 
+// Инициализация перед монтированием компонента
+onBeforeMount(() => {
+  if (!process.client) return
+  
+  // Восстанавливаем состояние из sessionStorage если есть
+  if (viewMode.value === 'infinite') {
+    const savedCount = sessionStorage.getItem('catalog_games_count')
+    if (savedCount) {
+      const count = Number(savedCount)
+      if (count > 0) {
+        // Восстанавливаем количество игр для правильной работы infinite scroll
+        // (сами игры будут загружены в onMounted)
+      }
+    }
+  }
+  
+  // Восстанавливаем выбранные фильтры из URL если они есть
+  syncFiltersFromQuery()
+})
+
+// Синхронизация фильтров из query параметров
+const syncFiltersFromQuery = () => {
+  if (route.query.genres) {
+    const genreIds = String(route.query.genres).split(',').map(Number).filter(n => !isNaN(n))
+    selectedGenres.value = genreIds
+    gamesStore.genres = genreIds.join(',')
+  }
+  
+  if (route.query.platforms) {
+    const platformIds = String(route.query.platforms).split(',').map(Number).filter(n => !isNaN(n))
+    selectedPlatforms.value = platformIds
+    gamesStore.platforms = platformIds.join(',')
+  }
+  
+  if (route.query.publishers) {
+    const publisherIds = String(route.query.publishers).split(',').map(Number).filter(n => !isNaN(n))
+    selectedPublishers.value = publisherIds
+    gamesStore.publishers = publisherIds.join(',')
+  }
+  
+  if (route.query.developers) {
+    const developerIds = String(route.query.developers).split(',').map(Number).filter(n => !isNaN(n))
+    selectedDevelopers.value = developerIds
+    gamesStore.developers = developerIds.join(',')
+  }
+  
+  if (route.query.stores) {
+    const storeIds = String(route.query.stores).split(',').map(Number).filter(n => !isNaN(n))
+    selectedStores.value = storeIds
+    gamesStore.stores = storeIds.join(',')
+  }
+  
+  if (route.query.tags) {
+    const tagIds = String(route.query.tags).split(',').map(Number).filter(n => !isNaN(n))
+    selectedTags.value = tagIds
+    gamesStore.tags = tagIds.join(',')
+  }
+  
+  if (route.query.rating) {
+    const [min, max] = String(route.query.rating).split(',')
+    if (min) ratingMin.value = min
+    if (max) ratingMax.value = max
+    gamesStore.ratingMin = min || ''
+    gamesStore.ratingMax = max || ''
+  }
+  
+  if (route.query.search) {
+    gamesStore.search = String(route.query.search)
+  }
+  
+  if (route.query.sort) {
+    gamesStore.sort = String(route.query.sort)
+  }
+  
+  if (route.query.page && viewMode.value === 'pagination') {
+    gamesStore.page = Number(route.query.page) || 1
+  }
+  
+  // Обработка дат
+  if (route.query.dates) {
+    const dates = String(route.query.dates)
+    gamesStore.dates = dates
+    // Парсим даты для отображения в полях
+    const [from, to] = dates.split(',')
+    if (from) {
+      const fromYear = new Date(from).getFullYear()
+      if (!isNaN(fromYear)) dateFrom.value = fromYear
+    }
+    if (to) {
+      const toYear = new Date(to).getFullYear()
+      if (!isNaN(toYear)) dateTo.value = toYear
+    }
+  }
+}
+
 // Загружаем данные при инициализации
 onMounted(async () => {
   // Для infinite scroll добавляем обработчик скролла сразу
@@ -750,6 +845,7 @@ const applyFilters = async () => {
     // Для infinite scroll сбрасываем и загружаем с первой страницы
     allGames.value = []
     gamesStore.page = 1
+    gamesStore.total = 0 // Сбрасываем total чтобы загрузить заново
     // Загружаем первую страницу
     await loadMoreGames()
   }
@@ -999,8 +1095,152 @@ const clearAllFilters = () => {
   ratingMin.value = ''
   ratingMax.value = ''
   allGames.value = []
+  gamesStore.total = 0 // Сбрасываем total чтобы загрузить заново
+  gamesStore.page = 1 // Убеждаемся что страница = 1
+  // Очищаем URL параметры
+  if (process.client) {
+    router.push({ query: { mode: viewMode.value } })
+  }
   applyFilters()
 }
+
+// Дополнительные watchers для всех фильтров
+watch(() => gamesStore.publishers, (value) => {
+  if (value) {
+    selectedPublishers.value = value.split(',').map(Number).filter(n => !isNaN(n))
+  } else {
+    selectedPublishers.value = []
+  }
+}, { immediate: true })
+
+watch(() => gamesStore.developers, (value) => {
+  if (value) {
+    selectedDevelopers.value = value.split(',').map(Number).filter(n => !isNaN(n))
+  } else {
+    selectedDevelopers.value = []
+  }
+}, { immediate: true })
+
+watch(() => gamesStore.stores, (value) => {
+  if (value) {
+    selectedStores.value = value.split(',').map(Number).filter(n => !isNaN(n))
+  } else {
+    selectedStores.value = []
+  }
+}, { immediate: true })
+
+watch(() => gamesStore.tags, (value) => {
+  if (value) {
+    selectedTags.value = value.split(',').map(Number).filter(n => !isNaN(n))
+  } else {
+    selectedTags.value = []
+  }
+}, { immediate: true })
+
+watch(() => gamesStore.ratingMin, (value) => {
+  ratingMin.value = value || ''
+}, { immediate: true })
+
+watch(() => gamesStore.ratingMax, (value) => {
+  ratingMax.value = value || ''
+}, { immediate: true })
+
+watch(() => gamesStore.dates, (value) => {
+  if (value) {
+    const [from, to] = value.split(',')
+    if (from) {
+      const fromYear = new Date(from).getFullYear()
+      if (!isNaN(fromYear)) dateFrom.value = fromYear
+    }
+    if (to) {
+      const toYear = new Date(to).getFullYear()
+      if (!isNaN(toYear)) dateTo.value = toYear
+    }
+  } else {
+    dateFrom.value = null
+    dateTo.value = null
+  }
+}, { immediate: true })
+
+watch(() => gamesStore.page, (newPage, oldPage) => {
+  if (!hasLoadedInitialData.value) return
+  if (newPage === oldPage) return
+  
+  // При изменении страницы применяем фильтры (но не помечаем как изменение фильтров)
+  if (viewMode.value === 'pagination') {
+    filtersChanged.value = false
+    applyFilters()
+  }
+}, { immediate: false })
+
+watch(() => gamesStore.total, (newTotal, oldTotal) => {
+  if (newTotal !== oldTotal && hasLoadedInitialData.value) {
+    // Обновляем информацию о количестве игр
+  }
+})
+
+watch(() => gamesStore.loading, (isLoading) => {
+  if (!isLoading && hasLoadedInitialData.value) {
+    // Загрузка завершена, можно выполнить дополнительные действия
+  }
+})
+
+watch(() => gamesStore.error, (error) => {
+  if (error && hasLoadedInitialData.value) {
+    console.error('Ошибка загрузки игр:', error)
+  }
+})
+
+// Наблюдаем за изменением выбранных фильтров и синхронизируем с store (только после инициализации)
+watch(() => selectedPlatforms.value, (value) => {
+  if (!hasLoadedInitialData.value) return
+  gamesStore.platforms = value.length > 0 ? value.join(',') : ''
+}, { deep: true })
+
+watch(() => selectedGenres.value, (value) => {
+  if (!hasLoadedInitialData.value) return
+  gamesStore.genres = value.length > 0 ? value.join(',') : ''
+}, { deep: true })
+
+watch(() => selectedPublishers.value, (value) => {
+  if (!hasLoadedInitialData.value) return
+  gamesStore.publishers = value.length > 0 ? value.join(',') : ''
+}, { deep: true })
+
+watch(() => selectedDevelopers.value, (value) => {
+  if (!hasLoadedInitialData.value) return
+  gamesStore.developers = value.length > 0 ? value.join(',') : ''
+}, { deep: true })
+
+watch(() => selectedStores.value, (value) => {
+  if (!hasLoadedInitialData.value) return
+  gamesStore.stores = value.length > 0 ? value.join(',') : ''
+}, { deep: true })
+
+watch(() => selectedTags.value, (value) => {
+  if (!hasLoadedInitialData.value) return
+  gamesStore.tags = value.length > 0 ? value.join(',') : ''
+}, { deep: true })
+
+watch(() => ratingMin.value, (value) => {
+  if (!hasLoadedInitialData.value) return
+  gamesStore.ratingMin = value || ''
+})
+
+watch(() => ratingMax.value, (value) => {
+  if (!hasLoadedInitialData.value) return
+  gamesStore.ratingMax = value || ''
+})
+
+watch(() => dateFrom.value, (value) => {
+  if (!hasLoadedInitialData.value) return
+  updateDates()
+})
+
+watch(() => dateTo.value, (value) => {
+  if (!hasLoadedInitialData.value) return
+  updateDates()
+})
 
 onUnmounted(() => {
   if (process.client) {
@@ -1079,7 +1319,7 @@ onUnmounted(() => {
   gap: 24px;
   max-width: 1440px;
   margin: 0 auto;
-  padding: 0 20px;
+  padding: 0;
 }
 
 .filters-sidebar {

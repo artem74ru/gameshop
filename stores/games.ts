@@ -41,7 +41,7 @@ export const useGamesStore = defineStore('gamesStore', {
     state: () => ({
         games: [] as Game[],
         page: 1,
-        pageSize: 12,
+        pageSize: 20, // Увеличено с 12 до 20 для лучшей загрузки
         total: 0,
 
         loading: false,
