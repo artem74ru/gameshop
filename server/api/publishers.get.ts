@@ -1,4 +1,4 @@
-import { defineEventHandler, setHeader } from 'h3'
+import { defineCachedEventHandler } from 'h3'
 import { fetchAllResults } from '../utils/fetchAllResults'
 
 interface RawgPublisher {
@@ -13,24 +13,12 @@ interface RawgPublishersResponse {
     count: number
 }
 
-// Кеш для издателей (меняются редко)
-let publishersCache: { data: any; timestamp: number } | null = null
-const PUBLISHERS_CACHE_TTL = 3600 * 1000 // 1 час
-
-export default defineEventHandler(async (event) => {
+// Используем defineCachedEventHandler для кеширования на Vercel
+// TTL: 3600 секунд (1 час) - фильтры меняются редко
+export default defineCachedEventHandler(async (event) => {
     try {
-        // Проверяем кеш
-        if (publishersCache && Date.now() - publishersCache.timestamp < PUBLISHERS_CACHE_TTL) {
-            setHeader(event, 'X-Cache', 'HIT')
-            setHeader(event, 'Cache-Control', 'public, max-age=3600, s-maxage=3600')
-            return publishersCache.data
-        }
-        
-        setHeader(event, 'X-Cache', 'MISS')
-        setHeader(event, 'Cache-Control', 'public, max-age=3600, s-maxage=3600')
-        
-        // Получаем всех издателей через пагинацию
-        const allPublishers = await fetchAllResults<RawgPublisher>('/publishers', {}, 40)
+        // Получаем издателей через пагинацию (максимум 2 страницы = 80 элементов)
+        const allPublishers = await fetchAllResults<RawgPublisher>('/publishers', {}, 40, 2)
 
         const result = {
             results: allPublishers
@@ -44,12 +32,6 @@ export default defineEventHandler(async (event) => {
                 .sort((a, b) => b.gamesCount - a.gamesCount)
         }
         
-        // Сохраняем в кеш
-        publishersCache = {
-            data: result,
-            timestamp: Date.now()
-        }
-        
         return result
     } catch (error) {
         throw createError({
@@ -58,4 +40,7 @@ export default defineEventHandler(async (event) => {
             data: error
         })
     }
+}, {
+    maxAge: 3600, // 1 час
+    getKey: () => 'publishers'
 })

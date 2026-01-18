@@ -1,4 +1,4 @@
-import { defineEventHandler } from 'h3'
+import { defineCachedEventHandler } from 'h3'
 import { fetchAllResults } from '../utils/fetchAllResults'
 
 interface RawgPlatform {
@@ -11,24 +11,12 @@ interface RawgPlatformsResponse {
     results: RawgPlatform[]
 }
 
-// Кеш для платформ (меняются редко)
-let platformsCache: { data: any; timestamp: number } | null = null
-const PLATFORMS_CACHE_TTL = 3600 * 1000 // 1 час
-
-export default defineEventHandler(async (event) => {
+// Используем defineCachedEventHandler для кеширования на Vercel
+// TTL: 3600 секунд (1 час) - фильтры меняются редко
+export default defineCachedEventHandler(async (event) => {
     try {
-        // Проверяем кеш
-        if (platformsCache && Date.now() - platformsCache.timestamp < PLATFORMS_CACHE_TTL) {
-            setHeader(event, 'X-Cache', 'HIT')
-            setHeader(event, 'Cache-Control', 'public, max-age=3600, s-maxage=3600')
-            return platformsCache.data
-        }
-        
-        setHeader(event, 'X-Cache', 'MISS')
-        setHeader(event, 'Cache-Control', 'public, max-age=3600, s-maxage=3600')
-        
-        // Получаем все платформы через пагинацию
-        const allPlatforms = await fetchAllResults<RawgPlatform>('/platforms', {}, 40)
+        // Получаем платформы через пагинацию (максимум 2 страницы = 80 элементов)
+        const allPlatforms = await fetchAllResults<RawgPlatform>('/platforms', {}, 40, 2)
 
         const result = {
             results: allPlatforms.map((p) => ({
@@ -36,12 +24,6 @@ export default defineEventHandler(async (event) => {
                 name: p.name,
                 slug: p.slug
             }))
-        }
-        
-        // Сохраняем в кеш
-        platformsCache = {
-            data: result,
-            timestamp: Date.now()
         }
         
         return result
@@ -52,4 +34,7 @@ export default defineEventHandler(async (event) => {
             data: error
         })
     }
+}, {
+    maxAge: 3600, // 1 час
+    getKey: () => 'platforms'
 })

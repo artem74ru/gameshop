@@ -21,7 +21,7 @@ export const fetchAllResults = async <T = any>(
     endpoint: string,
     params: Record<string, string | number | undefined> = {},
     maxPageSize: number = 40,
-    maxPages: number = 5 // Ограничиваем количество страниц для избежания таймаутов
+    maxPages: number = 2 // Ограничиваем до 2 страниц (80 элементов) для избежания таймаутов на Vercel
 ): Promise<T[]> => {
     const { get } = useRawgClient()
     const allResults: T[] = []

@@ -1,4 +1,4 @@
-import { defineEventHandler } from 'h3'
+import { defineCachedEventHandler } from 'h3'
 import { fetchAllResults } from '../utils/fetchAllResults'
 
 interface RawgGenre {
@@ -13,24 +13,12 @@ interface RawgGenresResponse {
     count: number
 }
 
-// Кеш для жанров (меняются редко)
-let genresCache: { data: any; timestamp: number } | null = null
-const GENRES_CACHE_TTL = 3600 * 1000 // 1 час
-
-export default defineEventHandler(async (event) => {
+// Используем defineCachedEventHandler для кеширования на Vercel
+// TTL: 3600 секунд (1 час) - фильтры меняются редко
+export default defineCachedEventHandler(async (event) => {
     try {
-        // Проверяем кеш
-        if (genresCache && Date.now() - genresCache.timestamp < GENRES_CACHE_TTL) {
-            setHeader(event, 'X-Cache', 'HIT')
-            setHeader(event, 'Cache-Control', 'public, max-age=3600, s-maxage=3600')
-            return genresCache.data
-        }
-        
-        setHeader(event, 'X-Cache', 'MISS')
-        setHeader(event, 'Cache-Control', 'public, max-age=3600, s-maxage=3600')
-        
-        // Получаем все жанры через пагинацию
-        const allGenres = await fetchAllResults<RawgGenre>('/genres', {}, 40)
+        // Получаем жанры через пагинацию (максимум 2 страницы = 80 элементов)
+        const allGenres = await fetchAllResults<RawgGenre>('/genres', {}, 40, 2)
 
         const result = {
             results: allGenres
@@ -44,12 +32,6 @@ export default defineEventHandler(async (event) => {
                 .sort((a, b) => b.gamesCount - a.gamesCount)
         }
         
-        // Сохраняем в кеш
-        genresCache = {
-            data: result,
-            timestamp: Date.now()
-        }
-        
         return result
     } catch (error) {
         throw createError({
@@ -58,5 +40,8 @@ export default defineEventHandler(async (event) => {
             data: error
         })
     }
+}, {
+    maxAge: 3600, // 1 час
+    getKey: () => 'genres'
 })
 

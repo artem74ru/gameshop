@@ -1,4 +1,4 @@
-import { defineEventHandler, setHeader } from 'h3'
+import { defineCachedEventHandler } from 'h3'
 import { fetchAllResults } from '../utils/fetchAllResults'
 
 interface RawgStore {
@@ -13,24 +13,12 @@ interface RawgStoresResponse {
     count: number
 }
 
-// Кеш для магазинов (меняются редко)
-let storesCache: { data: any; timestamp: number } | null = null
-const STORES_CACHE_TTL = 3600 * 1000 // 1 час
-
-export default defineEventHandler(async (event) => {
+// Используем defineCachedEventHandler для кеширования на Vercel
+// TTL: 3600 секунд (1 час) - фильтры меняются редко
+export default defineCachedEventHandler(async (event) => {
     try {
-        // Проверяем кеш
-        if (storesCache && Date.now() - storesCache.timestamp < STORES_CACHE_TTL) {
-            setHeader(event, 'X-Cache', 'HIT')
-            setHeader(event, 'Cache-Control', 'public, max-age=3600, s-maxage=3600')
-            return storesCache.data
-        }
-        
-        setHeader(event, 'X-Cache', 'MISS')
-        setHeader(event, 'Cache-Control', 'public, max-age=3600, s-maxage=3600')
-        
-        // Получаем все магазины через пагинацию
-        const allStores = await fetchAllResults<RawgStore>('/stores', {}, 40)
+        // Получаем магазины через пагинацию (максимум 2 страницы = 80 элементов)
+        const allStores = await fetchAllResults<RawgStore>('/stores', {}, 40, 2)
 
         const result = {
             results: allStores
@@ -44,12 +32,6 @@ export default defineEventHandler(async (event) => {
                 .sort((a, b) => b.gamesCount - a.gamesCount)
         }
         
-        // Сохраняем в кеш
-        storesCache = {
-            data: result,
-            timestamp: Date.now()
-        }
-        
         return result
     } catch (error) {
         throw createError({
@@ -58,4 +40,7 @@ export default defineEventHandler(async (event) => {
             data: error
         })
     }
+}, {
+    maxAge: 3600, // 1 час
+    getKey: () => 'stores'
 })

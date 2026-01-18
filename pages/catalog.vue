@@ -532,28 +532,46 @@ const loadFilteredCount = async () => {
   }
 }
 
-// Платформы
-const { data: platformsData } = await useFetch('/api/platforms')
+// Платформы - загружаем лениво (lazy) чтобы не блокировать загрузку страницы
+const { data: platformsData } = await useFetch('/api/platforms', { 
+    lazy: true,
+    server: false // Загружаем на клиенте для ускорения SSR
+})
 const platforms = computed(() => platformsData.value?.results || [])
 
-// Жанры
-const { data: genresData } = await useFetch('/api/genres')
+// Жанры - загружаем лениво
+const { data: genresData } = await useFetch('/api/genres', { 
+    lazy: true,
+    server: false
+})
 const genres = computed(() => genresData.value?.results || [])
 
-// Издатели
-const { data: publishersData } = await useFetch('/api/publishers')
+// Издатели - загружаем лениво
+const { data: publishersData } = await useFetch('/api/publishers', { 
+    lazy: true,
+    server: false
+})
 const publishers = computed(() => publishersData.value?.results || [])
 
-// Разработчики
-const { data: developersData } = await useFetch('/api/developers')
+// Разработчики - загружаем лениво
+const { data: developersData } = await useFetch('/api/developers', { 
+    lazy: true,
+    server: false
+})
 const developers = computed(() => developersData.value?.results || [])
 
-// Магазины
-const { data: storesData } = await useFetch('/api/stores')
+// Магазины - загружаем лениво
+const { data: storesData } = await useFetch('/api/stores', { 
+    lazy: true,
+    server: false
+})
 const gameStores = computed(() => storesData.value?.results || [])
 
-// Теги
-const { data: tagsData } = await useFetch('/api/tags')
+// Теги - загружаем лениво
+const { data: tagsData } = await useFetch('/api/tags', { 
+    lazy: true,
+    server: false
+})
 const gameTags = computed(() => tagsData.value?.results || [])
 
 // Debounce для поиска

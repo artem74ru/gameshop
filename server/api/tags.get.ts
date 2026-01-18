@@ -1,4 +1,4 @@
-import { defineEventHandler, setHeader } from 'h3'
+import { defineCachedEventHandler } from 'h3'
 import { fetchAllResults } from '../utils/fetchAllResults'
 
 interface RawgTag {
@@ -13,24 +13,12 @@ interface RawgTagsResponse {
     count: number
 }
 
-// Кеш для тегов (меняются редко)
-let tagsCache: { data: any; timestamp: number } | null = null
-const TAGS_CACHE_TTL = 3600 * 1000 // 1 час
-
-export default defineEventHandler(async (event) => {
+// Используем defineCachedEventHandler для кеширования на Vercel
+// TTL: 3600 секунд (1 час) - фильтры меняются редко
+export default defineCachedEventHandler(async (event) => {
     try {
-        // Проверяем кеш
-        if (tagsCache && Date.now() - tagsCache.timestamp < TAGS_CACHE_TTL) {
-            setHeader(event, 'X-Cache', 'HIT')
-            setHeader(event, 'Cache-Control', 'public, max-age=3600, s-maxage=3600')
-            return tagsCache.data
-        }
-        
-        setHeader(event, 'X-Cache', 'MISS')
-        setHeader(event, 'Cache-Control', 'public, max-age=3600, s-maxage=3600')
-        
-        // Получаем все теги через пагинацию
-        const allTags = await fetchAllResults<RawgTag>('/tags', {}, 40)
+        // Получаем теги через пагинацию (максимум 2 страницы = 80 элементов)
+        const allTags = await fetchAllResults<RawgTag>('/tags', {}, 40, 2)
 
         // Исключаем теги, связанные с сексуальным контентом
         const sexualContentKeywords = [
@@ -57,12 +45,6 @@ export default defineEventHandler(async (event) => {
                 .sort((a, b) => b.gamesCount - a.gamesCount)
         }
         
-        // Сохраняем в кеш
-        tagsCache = {
-            data: result,
-            timestamp: Date.now()
-        }
-        
         return result
     } catch (error) {
         throw createError({
@@ -71,4 +53,7 @@ export default defineEventHandler(async (event) => {
             data: error
         })
     }
+}, {
+    maxAge: 3600, // 1 час
+    getKey: () => 'tags'
 })
