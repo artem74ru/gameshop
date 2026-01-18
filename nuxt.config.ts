@@ -19,6 +19,13 @@ export default defineNuxtConfig({
   nitro: {
     experimental: {
       wasm: true
+    },
+    // Настройка таймаутов для Vercel
+    routeRules: {
+      '/api/**': {
+        headers: { 'cache-control': 's-maxage=60' },
+        cors: true
+      }
     }
   }
 })
