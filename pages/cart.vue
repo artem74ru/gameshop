@@ -684,5 +684,163 @@ const handleCheckout = () => {
     position: static;
   }
 }
+
+@media (max-width: 768px) {
+  .cart-page {
+    padding: 16px;
+  }
+
+  .cart-title {
+    font-size: 24px;
+  }
+
+  .cart-item {
+    grid-template-columns: 80px 1fr auto;
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .cart-item-image {
+    width: 80px;
+    height: 100px;
+  }
+
+  .cart-item-name {
+    font-size: 15px;
+  }
+
+  .cart-item-price {
+    font-size: 16px;
+  }
+
+  .cart-summary {
+    padding: 16px;
+  }
+
+  .cart-summary-title {
+    font-size: 18px;
+  }
+
+  .cart-total {
+    font-size: 20px;
+  }
+
+  .btn {
+    padding: 10px 20px;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .cart-page {
+    padding: 12px;
+  }
+
+  .cart-title {
+    font-size: 20px;
+  }
+
+  .cart-item {
+    grid-template-columns: 70px 1fr auto;
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .cart-item-image {
+    width: 70px;
+    height: 90px;
+  }
+
+  .cart-item-name {
+    font-size: 14px;
+  }
+
+  .cart-item-price {
+    font-size: 15px;
+  }
+
+  .remove-btn {
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
+  }
+
+  .cart-summary {
+    padding: 12px;
+  }
+
+  .cart-summary-title {
+    font-size: 16px;
+  }
+
+  .cart-total {
+    font-size: 18px;
+  }
+
+  .btn {
+    padding: 10px 16px;
+    font-size: 13px;
+  }
+
+  .empty-cart-title {
+    font-size: 20px;
+  }
+
+  .empty-cart-message {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 375px) {
+  .cart-page {
+    padding: 10px;
+  }
+
+  .cart-title {
+    font-size: 18px;
+  }
+
+  .cart-item {
+    grid-template-columns: 60px 1fr auto;
+    gap: 8px;
+    padding: 8px;
+  }
+
+  .cart-item-image {
+    width: 60px;
+    height: 80px;
+  }
+
+  .cart-item-name {
+    font-size: 13px;
+  }
+
+  .cart-item-price {
+    font-size: 14px;
+  }
+
+  .remove-btn {
+    width: 28px;
+    height: 28px;
+    font-size: 14px;
+  }
+
+  .cart-summary {
+    padding: 10px;
+  }
+
+  .cart-summary-title {
+    font-size: 15px;
+  }
+
+  .cart-total {
+    font-size: 16px;
+  }
+
+  .btn {
+    padding: 8px 14px;
+    font-size: 12px;
+  }
+}
 </style>
 

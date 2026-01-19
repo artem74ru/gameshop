@@ -2,7 +2,7 @@
   <div class="home">
 
     <!-- Большой герой-блок -->
-    <HeroBig v-if="featuredGames.length > 0" :games="featuredGames" />
+    <HeroBig v-if="featuredLoading || featuredGames.length > 0" :games="featuredGames" :loading="featuredLoading" />
 
     <!-- Категории -->
     <CategoryList :categories="categories" />
@@ -14,16 +14,19 @@
     <GameCarousel
         title="Популярное"
         :games="popularGames"
+        :loading="popularPending"
     />
 
     <GameCarousel
         title="Новинки"
         :games="newGames"
+        :loading="newGamesPending"
     />
 
     <GameCarousel
         title="Рекомендуем"
         :games="recommendedGames"
+        :loading="recommendedPending"
     />
   </div>
 </template>
@@ -109,7 +112,7 @@ const filterGamesWithImages = (games: Game[], count: number): Game[] => {
 
 // Рекомендуем - самые популярные игры по версии RAWG API
 // Используем сортировку по рейтингу (самые популярные)
-const { data: recommendedData } = await useFetch('/api/games', {
+const { data: recommendedData, pending: recommendedPending } = await useFetch('/api/games', {
   query: {
     page: 1,
     pageSize: 15, // Загружаем больше, чтобы после фильтрации осталось 8
@@ -125,7 +128,7 @@ const recommendedGames = computed(() => {
 
 // Новинки - самые популярные игры за последний год по версии RAWG API
 // Фильтруем за последний год и сортируем по рейтингу (популярности)
-const { data: newGamesData } = await useFetch('/api/games', {
+const { data: newGamesData, pending: newGamesPending } = await useFetch('/api/games', {
   query: {
     page: 1,
     pageSize: 15, // Загружаем больше, чтобы после фильтрации осталось 8
@@ -142,7 +145,7 @@ const newGames = computed(() => {
 
 // Популярное - самые популярные игры, но не те, что уже в "Рекомендуем"
 // Загружаем больше популярных игр и исключаем те, что уже в recommendedGames
-const { data: popularData } = await useFetch('/api/games', {
+const { data: popularData, pending: popularPending } = await useFetch('/api/games', {
   query: {
     page: 1,
     pageSize: 20, // Загружаем больше, чтобы после фильтрации осталось 8
@@ -163,6 +166,7 @@ const popularGames = computed(() => {
 
 // Featured games - первые 5 из рекомендуемых для карусели
 const featuredGames = computed(() => recommendedGames.value.slice(0, 5))
+const featuredLoading = computed(() => recommendedPending.value)
 </script>
 
 <style scoped>
@@ -171,5 +175,26 @@ const featuredGames = computed(() => recommendedGames.value.slice(0, 5))
   flex-direction: column;
   gap: 32px;
   padding: 24px 0;
+}
+
+@media (max-width: 768px) {
+  .home {
+    gap: 24px;
+    padding: 16px 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .home {
+    gap: 20px;
+    padding: 12px 0;
+  }
+}
+
+@media (max-width: 375px) {
+  .home {
+    gap: 16px;
+    padding: 10px 0;
+  }
 }
 </style>

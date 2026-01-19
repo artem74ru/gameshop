@@ -1,5 +1,6 @@
 <template>
-  <div class="hero-carousel" @mouseenter="pauseAutoPlay" @mouseleave="resumeAutoPlay">
+  <SkeletonHero v-if="isLoading" />
+  <div v-else class="hero-carousel" @mouseenter="pauseAutoPlay" @mouseleave="resumeAutoPlay">
     <div class="hero-container">
       <NuxtLink
           v-for="(game, index) in games"
@@ -95,7 +96,10 @@ import { getGameImage } from '~/utils/useGameImage'
 
 const props = defineProps<{
   games: Game[]
+  loading?: boolean
 }>()
+
+const isLoading = computed(() => props.loading ?? false)
 
 // Ограничиваем до 5 игр
 const games = computed(() => props.games.slice(0, 5))
@@ -408,6 +412,7 @@ onUnmounted(() => {
 
   .hero {
     grid-template-columns: 1fr;
+    padding: 20px;
   }
 
   .hero-image {
@@ -426,6 +431,105 @@ onUnmounted(() => {
 
   .carousel-btn-next {
     right: 10px;
+  }
+
+  h2 {
+    font-size: 22px;
+  }
+
+  .desc {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero-container {
+    height: 300px;
+  }
+
+  .hero {
+    padding: 16px;
+  }
+
+  .hero-image {
+    max-height: 180px;
+  }
+
+  .hero-label {
+    font-size: 11px;
+    padding: 4px 10px;
+  }
+
+  h2 {
+    font-size: 18px;
+  }
+
+  .desc {
+    font-size: 13px;
+  }
+
+  .tag {
+    font-size: 11px;
+    padding: 4px 10px;
+  }
+
+  .price {
+    font-size: 18px;
+  }
+
+  .carousel-btn {
+    width: 36px;
+    height: 36px;
+    font-size: 20px;
+  }
+
+  .carousel-btn-prev {
+    left: 8px;
+  }
+
+  .carousel-btn-next {
+    right: 8px;
+  }
+
+  .indicator {
+    width: 10px;
+    height: 10px;
+  }
+
+  .indicator.active {
+    width: 28px;
+  }
+}
+
+@media (max-width: 375px) {
+  .hero-container {
+    height: 280px;
+  }
+
+  .hero {
+    padding: 12px;
+  }
+
+  .hero-image {
+    max-height: 160px;
+  }
+
+  h2 {
+    font-size: 16px;
+  }
+
+  .desc {
+    font-size: 12px;
+  }
+
+  .price {
+    font-size: 16px;
+  }
+
+  .carousel-btn {
+    width: 32px;
+    height: 32px;
+    font-size: 18px;
   }
 }
 </style>

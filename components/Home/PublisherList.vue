@@ -147,4 +147,28 @@ const getShortName = (name: string): string => {
     font-size: 12px;
   }
 }
+
+@media (max-width: 480px) {
+  .publisher-wrapper {
+    gap: 6px;
+  }
+  
+  .publisher-btn {
+    height: 32px;
+    padding: 0 10px;
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 375px) {
+  .publisher-wrapper {
+    gap: 6px;
+  }
+  
+  .publisher-btn {
+    height: 30px;
+    padding: 0 8px;
+    font-size: 10px;
+  }
+}
 </style>

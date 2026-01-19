@@ -1,6 +1,6 @@
 <template>
   <div class="game-page">
-    <div v-if="pending" class="state">Загрузка...</div>
+    <SkeletonGameDetail v-if="pending" />
     <div v-else-if="error" class="state">
       Ошибка загрузки: {{ error }}
     </div>
@@ -144,8 +144,8 @@
             </div>
           </div>
 
-          <!-- Список магазинов с ценами -->
-          <div v-if="hasStores" class="stores-section">
+          <!-- Список магазинов с ценами (только если есть дата релиза) -->
+          <div v-if="hasReleaseDate && hasStores" class="stores-section">
             <h3 class="stores-title">Где купить:</h3>
             <div class="stores-list">
               <div
@@ -179,8 +179,8 @@
               </div>
             </div>
             
-            <!-- Кнопка покупки и ссылка на магазин -->
-            <div v-if="selectedStore && selectedStore.storeURL" class="purchase-section">
+            <!-- Кнопка покупки и ссылка на магазин (только если есть дата релиза) -->
+            <div v-if="hasReleaseDate && selectedStore && selectedStore.storeURL" class="purchase-section">
               <button
                   class="buy-button"
                   :class="{ 'in-cart': gameShopStore.isInCart(game.id) }"
@@ -194,7 +194,7 @@
                 <span v-else>Купить в {{ selectedStore.storeName }} за {{ formatPrice(selectedStore.price) }}</span>
               </button>
             </div>
-            <div v-else-if="selectedStore" class="purchase-section">
+            <div v-else-if="hasReleaseDate && selectedStore" class="purchase-section">
               <button 
                   class="buy-button"
                   :class="{ 'in-cart': gameShopStore.isInCart(game.id) }"
@@ -210,8 +210,8 @@
             </div>
           </div>
           
-          <!-- Если нет списка магазинов, но есть цена -->
-          <div v-else-if="currentPrice !== null && currentPrice !== undefined && currentPrice > 0" class="purchase-section">
+          <!-- Если нет списка магазинов, но есть цена (только если есть дата релиза) -->
+          <div v-else-if="hasReleaseDate && currentPrice !== null && currentPrice !== undefined && currentPrice > 0" class="purchase-section">
             <button 
                 class="buy-button"
                 :class="{ 'in-cart': gameShopStore.isInCart(game.id) }"
@@ -236,6 +236,61 @@
             >
               Перейти в {{ game.storeName || 'магазин' }}
             </a>
+          </div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- Сравнение цен из разных магазинов (только если есть дата релиза и есть цены) -->
+      <div v-if="hasReleaseDate && priceComparisonsLoading" class="section price-comparison-section">
+        <h2 class="section-title">Сравнение цен</h2>
+        <div class="price-comparison-grid">
+          <SkeletonPriceCard v-for="i in 3" :key="`skeleton-price-${i}`" />
+        </div>
+      </div>
+      <div v-else-if="hasReleaseDate && priceComparisons.length > 0" class="section price-comparison-section">
+        <h2 class="section-title">Сравнение цен</h2>
+        <div class="price-comparison-grid">
+          <div
+              v-for="(price, index) in priceComparisons"
+              :key="price.dealID || index"
+              class="price-comparison-card"
+              :class="{ 'best-price': index === 0 }"
+          >
+            <div class="price-card-header">
+              <h3 class="store-name">{{ price.storeName }}</h3>
+              <span v-if="index === 0 && price.price > 0" class="best-price-badge">Лучшая цена</span>
+            </div>
+            <div class="price-card-body">
+              <div v-if="price.price > 0" class="price-main">
+                <span class="price-value">{{ formatPrice(price.price) }}</span>
+                <span v-if="price.originalPrice && price.originalPrice > price.price" class="price-original">
+                  {{ formatPrice(price.originalPrice) }}
+                </span>
+              </div>
+              <div v-else class="price-unavailable">
+                <span class="price-unavailable-text">Цена недоступна</span>
+              </div>
+              <div v-if="price.discount > 0 && price.price > 0" class="price-discount">
+                Скидка {{ Math.round(price.discount) }}%
+              </div>
+              <div v-if="price.dealRating" class="price-rating">
+                Рейтинг: {{ parseFloat(price.dealRating).toFixed(1) }}/10
+              </div>
+            </div>
+            <a
+                v-if="price.storeURL"
+                :href="price.storeURL"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="price-buy-button"
+            >
+              {{ price.price > 0 ? 'Купить' : 'Перейти в магазин' }}
+            </a>
+            <div v-else class="price-buy-button price-buy-button-disabled">
+              Ссылка недоступна
+            </div>
           </div>
         </div>
       </div>
@@ -416,6 +471,7 @@
     
     <!-- Модальное окно уведомлений -->
     <NotificationModal
+        v-if="modalVisible"
         :is-visible="modalVisible"
         :type="modalType"
         :title="modalTitle"
@@ -432,8 +488,11 @@
 </template>
 
 <script setup lang="ts">
+import NotificationModal from '~/components/UIComponents/NotificationModal.vue'
 import GameCard from '~/components/Home/GameCard.vue'
 import { useGameShopStore } from '~/stores/GameShop'
+import SkeletonGameDetail from '~/components/UIComponents/SkeletonGameDetail.vue'
+import SkeletonPriceCard from '~/components/UIComponents/SkeletonPriceCard.vue'
 
 interface StoreOption {
   storeID: string
@@ -507,7 +566,48 @@ const game = computed(() => {
   if (!data.value) return null
   // Проверяем структуру ответа - API возвращает { game: {...} }
   if (data.value && typeof data.value === 'object' && 'game' in data.value) {
-    return (data.value as { game: GameDetails }).game
+    const gameData = (data.value as { game: GameDetails }).game
+    
+    // Сохраняем данные игры в sessionStorage
+    if (process.client && gameData) {
+      try {
+        const gameStorageKey = `game_${gameData.slug}`
+        sessionStorage.setItem(gameStorageKey, JSON.stringify({
+          id: gameData.id,
+          slug: gameData.slug,
+          name: gameData.name,
+          released: gameData.released,
+          rating: gameData.rating,
+          backgroundImage: gameData.backgroundImage,
+          platforms: gameData.platforms,
+          genres: gameData.genres,
+          developer: gameData.developer,
+          publisher: gameData.publisher,
+          price: gameData.price,
+          storeName: gameData.storeName,
+          storeURL: gameData.storeURL,
+          stores: gameData.stores,
+          website: gameData.website,
+          description: gameData.description,
+          screenshots: gameData.screenshots,
+          trailer: gameData.trailer,
+          trailerPreview: gameData.trailerPreview,
+          gameSeries: gameData.gameSeries,
+          isDLC: gameData.isDLC,
+          parentGame: gameData.parentGame,
+          ageRating: gameData.ageRating,
+          tags: gameData.tags,
+          priceSource: gameData.priceSource,
+          originalPrice: gameData.originalPrice,
+          discount: gameData.discount,
+          savedAt: new Date().toISOString()
+        }))
+      } catch (error) {
+        console.error('Ошибка при сохранении данных игры в sessionStorage:', error)
+      }
+    }
+    
+    return gameData
   }
   return null
 })
@@ -829,6 +929,82 @@ const handleBuy = () => {
     console.log('Open payment modal')
   }
 }
+
+// Сравнение цен из CheapShark для текущей игры
+interface PriceComparison {
+  storeID: string
+  storeName: string
+  price: number
+  originalPrice: number
+  discount: number
+  dealID: string
+  dealRating: string
+  storeURL: string
+  thumb?: string
+}
+
+const priceComparisons = ref<PriceComparison[]>([])
+const priceComparisonsLoading = ref(false)
+
+// Проверяем, есть ли у игры дата релиза
+const hasReleaseDate = computed(() => {
+  return game.value?.released && game.value.released.trim() !== ''
+})
+
+// Загружаем сравнение цен для текущей игры (только если есть дата релиза)
+const loadPriceComparisons = async () => {
+  if (!game.value || !game.value.slug) {
+    return
+  }
+
+  // Не загружаем цены, если нет даты релиза
+  if (!hasReleaseDate.value) {
+    priceComparisons.value = []
+    priceComparisonsLoading.value = false
+    return
+  }
+
+  priceComparisonsLoading.value = true
+  try {
+    const response = await $fetch<{ prices: PriceComparison[] }>(`/api/games/${game.value.slug}/prices`)
+    console.log('[Client] Получен ответ от API цен:', response)
+    if (response && response.prices) {
+      console.log(`[Client] Загружено ${response.prices.length} цен для "${game.value.name}"`)
+      priceComparisons.value = response.prices
+      if (response.prices.length === 0) {
+        console.warn(`[Client] Нет цен для "${game.value.name}" - возможно, игра не найдена в CheapShark`)
+      }
+    } else {
+      console.warn('[Client] Ответ от API не содержит prices:', response)
+      priceComparisons.value = []
+    }
+  } catch (error) {
+    console.error('[Client] Ошибка при загрузке сравнения цен:', error)
+    priceComparisons.value = []
+  } finally {
+    priceComparisonsLoading.value = false
+  }
+}
+
+// Загружаем сравнение цен при загрузке игры (только если есть дата релиза)
+watch(() => game.value?.slug, (slug) => {
+  if (slug && hasReleaseDate.value) {
+    loadPriceComparisons()
+  } else {
+    priceComparisons.value = []
+    priceComparisonsLoading.value = false
+  }
+}, { immediate: true })
+
+// Также следим за изменением даты релиза
+watch(() => game.value?.released, (released) => {
+  if (game.value?.slug && released && released.trim() !== '') {
+    loadPriceComparisons()
+  } else {
+    priceComparisons.value = []
+    priceComparisonsLoading.value = false
+  }
+})
 
 // Состояние модального окна
 const modalVisible = ref(false)
@@ -1194,7 +1370,7 @@ watch(tabs, (visibleTabs) => {
   color: #666;
   margin-bottom: 24px;
   flex-wrap: wrap;
-  padding: 0 20px;
+  padding: 0;
 }
 
 .breadcrumb-link {
@@ -2555,6 +2731,336 @@ watch(tabs, (visibleTabs) => {
   .buy-button {
     width: 100%;
     text-align: center;
+  }
+}
+
+.price-comparison-section {
+  margin-top: 40px;
+}
+
+.price-comparison-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 24px;
+  margin-top: 24px;
+}
+
+.price-comparison-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 24px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  position: relative;
+  overflow: hidden;
+}
+
+.price-comparison-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #e5e7eb 0%, #e5e7eb 100%);
+  transition: all 0.3s ease;
+}
+
+.price-comparison-card:hover {
+  border-color: #1976d2;
+  box-shadow: 0 8px 24px rgba(25, 118, 210, 0.12);
+  transform: translateY(-4px);
+}
+
+.price-comparison-card:hover::before {
+  background: linear-gradient(90deg, #1976d2 0%, #1565c0 100%);
+}
+
+.price-comparison-card.best-price {
+  border-color: #4caf50;
+  background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 50%);
+  box-shadow: 0 4px 16px rgba(76, 175, 80, 0.1);
+}
+
+.price-comparison-card.best-price::before {
+  background: linear-gradient(90deg, #4caf50 0%, #45a049 100%);
+}
+
+.price-comparison-card.best-price:hover {
+  box-shadow: 0 8px 24px rgba(76, 175, 80, 0.2);
+  border-color: #45a049;
+}
+
+.price-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 20px;
+  min-height: 48px;
+}
+
+.price-card-header .store-name {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0;
+  line-height: 1.4;
+  flex: 1;
+  padding-right: 12px;
+}
+
+.best-price-badge {
+  background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
+  color: white;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
+  flex-shrink: 0;
+}
+
+.price-card-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.price-main {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.price-comparison-card .price-value {
+  font-size: 32px;
+  font-weight: 800;
+  color: #1976d2;
+  line-height: 1;
+  letter-spacing: -0.5px;
+}
+
+.price-comparison-card.best-price .price-value {
+  color: #4caf50;
+}
+
+.price-original {
+  font-size: 18px;
+  color: #9ca3af;
+  text-decoration: line-through;
+  font-weight: 500;
+}
+
+.price-discount {
+  display: inline-flex;
+  align-items: center;
+  color: #4caf50;
+  font-weight: 700;
+  font-size: 15px;
+  background: rgba(76, 175, 80, 0.1);
+  padding: 4px 10px;
+  border-radius: 8px;
+  width: fit-content;
+}
+
+.price-rating {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #6b7280;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.price-rating::before {
+  content: '⭐';
+  font-size: 16px;
+}
+
+.price-unavailable {
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+}
+
+.price-unavailable-text {
+  font-size: 16px;
+  font-weight: 600;
+  color: #9ca3af;
+  font-style: italic;
+}
+
+.price-buy-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 14px 24px;
+  background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%);
+  color: white;
+  text-align: center;
+  text-decoration: none;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 16px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  margin-top: auto;
+  box-shadow: 0 2px 8px rgba(25, 118, 210, 0.2);
+  border: none;
+  cursor: pointer;
+}
+
+.price-buy-button::after {
+  content: '→';
+  font-size: 18px;
+  transition: transform 0.3s ease;
+}
+
+.price-buy-button:hover {
+  background: linear-gradient(135deg, #1565c0 0%, #0d47a1 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(25, 118, 210, 0.35);
+}
+
+.price-buy-button:hover::after {
+  transform: translateX(4px);
+}
+
+.price-comparison-card.best-price .price-buy-button {
+  background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
+  box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
+}
+
+.price-comparison-card.best-price .price-buy-button:hover {
+  background: linear-gradient(135deg, #45a049 0%, #388e3c 100%);
+  box-shadow: 0 6px 16px rgba(76, 175, 80, 0.4);
+}
+
+.price-buy-button-disabled {
+  background: #e5e7eb !important;
+  color: #9ca3af !important;
+  cursor: not-allowed !important;
+  pointer-events: none;
+}
+
+.price-buy-button-disabled:hover {
+  background: #e5e7eb !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.price-buy-button-disabled::after {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .price-comparison-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  
+  .price-comparison-card {
+    padding: 20px;
+  }
+  
+  .price-card-header .store-name {
+    font-size: 16px;
+  }
+  
+  .price-comparison-card .price-value {
+    font-size: 28px;
+  }
+}
+
+@media (max-width: 480px) {
+  .price-comparison-grid {
+    gap: 16px;
+  }
+  
+  .price-comparison-card {
+    padding: 16px;
+  }
+  
+  .price-card-header {
+    margin-bottom: 16px;
+    min-height: 40px;
+  }
+  
+  .price-card-header .store-name {
+    font-size: 15px;
+  }
+
+  .best-price-badge {
+    font-size: 10px;
+    padding: 4px 10px;
+  }
+  
+  .price-comparison-card .price-value {
+    font-size: 24px;
+  }
+
+  .price-original {
+    font-size: 16px;
+  }
+
+  .price-buy-button {
+    padding: 12px 20px;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 375px) {
+  .price-comparison-grid {
+    gap: 12px;
+  }
+  
+  .price-comparison-card {
+    padding: 14px;
+  }
+  
+  .price-card-header .store-name {
+    font-size: 14px;
+  }
+
+  .best-price-badge {
+    font-size: 9px;
+    padding: 3px 8px;
+  }
+  
+  .price-comparison-card .price-value {
+    font-size: 22px;
+  }
+
+  .price-original {
+    font-size: 14px;
+  }
+
+  .price-discount {
+    font-size: 13px;
+    padding: 3px 8px;
+  }
+
+  .price-rating {
+    font-size: 12px;
+  }
+
+  .price-buy-button {
+    padding: 10px 16px;
+    font-size: 13px;
+  }
+
+  .price-unavailable-text {
+    font-size: 14px;
   }
 }
 </style>

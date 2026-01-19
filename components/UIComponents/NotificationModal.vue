@@ -250,4 +250,67 @@ const handleCancel = () => {
     width: 100%;
   }
 }
+
+@media (max-width: 480px) {
+  .modal-overlay {
+    padding: 16px;
+  }
+
+  .modal-content {
+    padding: 20px;
+    margin: 0;
+    max-width: 100%;
+  }
+
+  .modal-icon {
+    width: 56px;
+    height: 56px;
+    font-size: 28px;
+    margin-bottom: 16px;
+  }
+
+  .modal-title {
+    font-size: 18px;
+  }
+
+  .modal-message {
+    font-size: 13px;
+  }
+
+  .btn {
+    padding: 10px 20px;
+    font-size: 14px;
+    min-width: 100px;
+  }
+}
+
+@media (max-width: 375px) {
+  .modal-overlay {
+    padding: 12px;
+  }
+
+  .modal-content {
+    padding: 16px;
+  }
+
+  .modal-icon {
+    width: 48px;
+    height: 48px;
+    font-size: 24px;
+    margin-bottom: 12px;
+  }
+
+  .modal-title {
+    font-size: 16px;
+  }
+
+  .modal-message {
+    font-size: 12px;
+  }
+
+  .btn {
+    padding: 8px 16px;
+    font-size: 13px;
+  }
+}
 </style>

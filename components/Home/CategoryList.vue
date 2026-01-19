@@ -128,11 +128,36 @@ const getCategoryStyle = (category: Category) => {
   .category-wrapper {
     grid-template-columns: 1fr;
     grid-template-rows: auto;
+    gap: 16px;
   }
   
   .category-btn {
     height: 120px;
     font-size: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .category-wrapper {
+    gap: 12px;
+  }
+  
+  .category-btn {
+    height: 100px;
+    font-size: 13px;
+    padding: 0 12px;
+  }
+}
+
+@media (max-width: 375px) {
+  .category-wrapper {
+    gap: 10px;
+  }
+  
+  .category-btn {
+    height: 90px;
+    font-size: 12px;
+    padding: 0 10px;
   }
 }
 </style>

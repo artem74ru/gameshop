@@ -28,13 +28,13 @@ export default defineEventHandler(async (event) => {
         const { slug } = getRouterParams(event)
         const { get } = useRawgClient()
 
-        // Сначала получаем ID игры
-        const gameDetail = await get(`/games/${slug}`) as { id: number; genres?: Array<{ id: number }> }
+        // Сначала получаем ID игры (с увеличенным таймаутом и retry)
+        const gameDetail = await get(`/games/${slug}`, {}, { timeout: 20000, retries: 2 }) as { id: number; genres?: Array<{ id: number }> }
         
         // Получаем похожие игры через suggested endpoint (требует ID)
         let similarData: RawgResponse
         try {
-            similarData = await get(`/games/${gameDetail.id}/suggested`, { page_size: 20 }) as RawgResponse
+            similarData = await get(`/games/${gameDetail.id}/suggested`, { page_size: 20 }, { timeout: 15000, retries: 1 }) as RawgResponse
         } catch (e) {
             // Если suggested не работает, используем поиск по жанрам
             if (gameDetail.genres && gameDetail.genres.length > 0) {
@@ -43,7 +43,7 @@ export default defineEventHandler(async (event) => {
                     genres: genreIds,
                     page_size: 20,
                     ordering: '-rating'
-                }) as RawgResponse
+                }, { timeout: 15000, retries: 1 }) as RawgResponse
                 
                 // Исключаем текущую игру
                 similarData.results = similarData.results.filter(g => g.slug !== slug)

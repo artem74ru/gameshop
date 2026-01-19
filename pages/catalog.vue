@@ -263,6 +263,9 @@
             class="games-grid"
             :class="{ 'infinite-mode': viewMode === 'infinite' }"
         >
+          <template v-if="gamesStore.loading && displayedGames.length === 0">
+            <SkeletonCard v-for="i in 12" :key="`skeleton-${i}`" />
+          </template>
           <GameCard
               v-for="game in displayedGames"
               :key="game.id"
@@ -1559,6 +1562,130 @@ onUnmounted(() => {
   .page-header {
     flex-direction: column;
     align-items: flex-start;
+  }
+}
+
+@media (max-width: 768px) {
+  .catalog-page {
+    padding: 16px;
+  }
+
+  .page-title {
+    font-size: 24px;
+  }
+
+  .games-grid {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 16px;
+  }
+
+  .filters-sidebar {
+    padding: 16px;
+  }
+
+  .filter-group {
+    margin-bottom: 16px;
+  }
+
+  .filter-group-title {
+    font-size: 14px;
+  }
+
+  .mode-switcher {
+    margin-top: 16px;
+  }
+
+  .mode-label {
+    font-size: 13px;
+  }
+
+  .mode-btn {
+    font-size: 13px;
+    padding: 6px 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .catalog-page {
+    padding: 12px;
+  }
+
+  .page-title {
+    font-size: 20px;
+  }
+
+  .games-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 12px;
+  }
+
+  .filters-sidebar {
+    padding: 12px;
+  }
+
+  .filter-group {
+    margin-bottom: 12px;
+  }
+
+  .filter-group-title {
+    font-size: 13px;
+  }
+
+  .mode-switcher {
+    margin-top: 12px;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .mode-buttons {
+    width: 100%;
+  }
+
+  .mode-btn {
+    flex: 1;
+    font-size: 12px;
+    padding: 6px 10px;
+  }
+
+  .pagination {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .pagination-btn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 375px) {
+  .catalog-page {
+    padding: 10px;
+  }
+
+  .page-title {
+    font-size: 18px;
+  }
+
+  .games-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .filters-sidebar {
+    padding: 10px;
+  }
+
+  .filter-group-title {
+    font-size: 12px;
+  }
+
+  .mode-btn {
+    font-size: 11px;
+    padding: 5px 8px;
+  }
+
+  .pagination-info {
+    font-size: 12px;
   }
 }
 </style>

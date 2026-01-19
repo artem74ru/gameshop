@@ -28,8 +28,8 @@ export default defineEventHandler(async (event) => {
         const { slug } = getRouterParams(event)
         const { get } = useRawgClient()
 
-        // Получаем информацию об игре
-        const gameDetail = await get(`/games/${slug}`) as { 
+        // Получаем информацию об игре (с увеличенным таймаутом и retry)
+        const gameDetail = await get(`/games/${slug}`, {}, { timeout: 20000, retries: 2 }) as { 
             id: number
             name: string
             game_series?: Array<{ id: number; name: string; slug: string }>
@@ -39,12 +39,12 @@ export default defineEventHandler(async (event) => {
         if (gameDetail.game_series && gameDetail.game_series.length > 0) {
             const seriesId = gameDetail.game_series[0].id
             
-            // Получаем игры из той же серии используя параметр series
+            // Получаем игры из той же серии используя параметр series (с увеличенным таймаутом)
             const seriesGames = await get('/games', {
                 series: seriesId,
                 page_size: 50,
                 ordering: '-released'
-            }) as RawgResponse
+            }, { timeout: 15000, retries: 1 }) as RawgResponse
 
             // Фильтруем игры с сексуальным контентом
             const filteredSeries = filterSexualContent(seriesGames.results)
@@ -125,12 +125,12 @@ export default defineEventHandler(async (event) => {
             }
         }
 
-        // Ищем игры по базовому названию серии
+        // Ищем игры по базовому названию серии (с увеличенным таймаутом)
         const searchResults = await get('/games', {
             search: baseSeriesName,
             page_size: 100,
             ordering: '-released'
-        }) as RawgResponse
+        }, { timeout: 15000, retries: 1 }) as RawgResponse
 
         // Функция для нормализации названия (убираем лишние символы, предлоги, приводим к нижнему регистру)
         const normalizeName = (name: string): string => {

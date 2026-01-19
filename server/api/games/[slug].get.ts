@@ -52,7 +52,8 @@ export default defineCachedEventHandler(async (event) => {
         
         const { get } = useRawgClient()
 
-        const game = await get(`/games/${slug}`) as RawgGameDetail
+        // Используем увеличенный таймаут и retry для получения деталей игры
+        const game = await get(`/games/${slug}`, {}, { timeout: 20000, retries: 2 }) as RawgGameDetail
         
         // Проверяем, содержит ли игра сексуальный контент
         if (hasSexualContent(game.tags)) {
@@ -62,13 +63,14 @@ export default defineCachedEventHandler(async (event) => {
             })
         }
         
-        const screenshots = await get(`/games/${slug}/screenshots`, { page_size: 10 }) as RawgScreenshots
+        // Используем увеличенные таймауты для скриншотов и видео (они менее критичны)
+        const screenshots = await get(`/games/${slug}/screenshots`, { page_size: 10 }, { timeout: 15000, retries: 1 }) as RawgScreenshots
         
         // Получаем видео/трейлеры
         let movies: RawgMovies | null = null
         let trailerUrl: string | null = null
         try {
-            movies = await get(`/games/${slug}/movies`, { page_size: 5 }) as RawgMovies
+            movies = await get(`/games/${slug}/movies`, { page_size: 5 }, { timeout: 15000, retries: 1 }) as RawgMovies
             if (movies && movies.results && movies.results.length > 0) {
                 // RAWG API возвращает видео в формате data.max или data[480]
                 // Это прямые ссылки на видеофайлы, которые можно использовать в <video> теге

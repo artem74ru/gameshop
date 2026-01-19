@@ -517,4 +517,91 @@ const handleCartToggle = () => {
   text-transform: uppercase;
   font-size: 12px;
 }
+
+@media (max-width: 768px) {
+  .game-card {
+    border-radius: 10px;
+  }
+
+  .game-image {
+    height: 180px;
+  }
+
+  .game-title {
+    font-size: 15px;
+  }
+
+  .game-info {
+    padding: 12px;
+    gap: 8px;
+  }
+
+  .game-meta {
+    font-size: 12px;
+  }
+
+  .game-price {
+    font-size: 18px;
+  }
+}
+
+@media (max-width: 480px) {
+  .game-card {
+    border-radius: 8px;
+  }
+
+  .game-image {
+    height: 160px;
+  }
+
+  .game-title {
+    font-size: 14px;
+    line-height: 1.3;
+  }
+
+  .game-info {
+    padding: 10px;
+    gap: 6px;
+  }
+
+  .game-meta {
+    font-size: 11px;
+  }
+
+  .game-price {
+    font-size: 16px;
+  }
+
+  .cart-icon-btn {
+    width: 32px;
+    height: 32px;
+  }
+
+  .cart-icon-btn svg {
+    width: 16px;
+    height: 16px;
+  }
+}
+
+@media (max-width: 375px) {
+  .game-image {
+    height: 140px;
+  }
+
+  .game-title {
+    font-size: 13px;
+  }
+
+  .game-info {
+    padding: 8px;
+  }
+
+  .game-meta {
+    font-size: 10px;
+  }
+
+  .game-price {
+    font-size: 15px;
+  }
+}
 </style>
