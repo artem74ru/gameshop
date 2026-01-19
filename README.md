@@ -2,24 +2,37 @@
 
 A Nuxt 3 project with Vue 3, Pinia Store, and TypeScript.
 
-## Setup
+## 🚀 Быстрый старт
 
-1. Install dependencies:
+**Для подробной инструкции по установке и развертыванию см. [INSTALLATION.md](./INSTALLATION.md)**
 
+### Краткая инструкция:
+
+1. **Установите зависимости:**
 ```bash
 npm install
 ```
 
-2. Configure environment variables:
-
-Create a `.env` file in the root directory with the following variables:
-
+2. **Создайте файл `.env` в корне проекта:**
 ```env
 RAWG_API_KEY=your_rawg_api_key_here
 RAWG_BASE_URL=https://api.rawg.io/api
 ```
 
-**Important:** You need to get a RAWG API key from https://rawg.io/apidocs. Without these environment variables, the application will not work properly.
+**Важно:** Получите RAWG API ключ на https://rawg.io/apidocs
+
+3. **Запустите проект:**
+```bash
+npm run dev
+```
+
+Откройте http://localhost:3000 в браузере.
+
+## 📖 Документация
+
+- **[INSTALLATION.md](./INSTALLATION.md)** - Подробная инструкция по установке и развертыванию
+- **[docs/VERCEL_DEPLOYMENT.md](./docs/VERCEL_DEPLOYMENT.md)** - Развертывание на Vercel
+- **[docs/VERCEL_ENV_VARIABLES.md](./docs/VERCEL_ENV_VARIABLES.md)** - Настройка переменных окружения
 
 ## Development
 
